@@ -1,0 +1,30 @@
+{
+  "name": "@v3rt3p/home-functions",
+  "version": "1.0.0",
+  "description": "Home Assistant function and state server for v3rt3p processor",
+  "main": "src/main.ts",
+  "type": "module",
+  "repository": "https://github.com/v3rt3p/home-functions",
+  "author": "radioegor146",
+  "license": "MIT",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@bksp/style-guide": "^1.5.0",
+    "@digital-alchemy/core": "^26.6.21",
+    "@digital-alchemy/hass": "^26.8.18",
+    "@types/express": "^5.0.3",
+    "@v3rt3p/types": "github:v3rt3p/types#1.0.2",
+    "dotenv": "^17.2.0",
+    "eslint": "^9.31.0",
+    "express": "^5.1.0",
+    "tslog": "^4.9.3",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "yaml": "^2.8.0",
+    "zod": "^4.0.5"
+  }
+}

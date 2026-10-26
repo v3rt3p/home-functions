@@ -1,0 +1,39 @@
+# Select entities by Home Assistant labels.
+# Every entity that carries at least one of these labels is exposed.
+labels:
+  - alice
+
+# Optional per-entity overrides, keyed by entity_id.
+entities:
+  light.living_room:
+    # Override the display name (default: entity friendly_name).
+    # Also used for function prefixes (transliterated to snake_case).
+    description: living room light
+    names: [люстра]
+    slug: living_room_light
+    # Rename modes / inputs for this entity. The key selects the input list
+    # (color, effect, source, hvac_mode, preset_mode, fan_mode, swing_mode,
+    # option, operation_mode, sound_mode, tone, mode), the inner key is the
+    # raw Home Assistant value, the value is the new name or a list of
+    # [primary name, aliases...].
+    modes:
+      effect:
+        rainbow: party
+        slow fade: [calm, evening]
+      color:
+        white: warm white
+  media_player.tv:
+    description: TV
+    modes:
+      source:
+        HDMI 1: [playstation, приставка]
+        HDMI 2: computer
+  climate.kitchen:
+    description: kitchen air conditioner
+    modes:
+      hvac_mode:
+        heat: heating
+        cool: cooling
+        off: off
+      preset_mode:
+        eco: eco mode
