@@ -1,5 +1,4 @@
-import { FunctionArgument } from '@v3rt3p/types/function-state-server'
-
+import { JsonSchema } from '../arguments'
 import { EntityConfig } from '../config'
 
 export interface DeviceContext {
@@ -17,7 +16,10 @@ export interface DeviceContext {
 }
 
 export interface DeviceFunction {
-  arguments: Record<string, FunctionArgument>;
+  /**
+  JSON Schema of the whole arguments object
+  */
+  arguments: JsonSchema;
   description: string;
   /**
   true when invoke() returns a meaningful result that should be spoken back

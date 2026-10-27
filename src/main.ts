@@ -1,8 +1,13 @@
 import { CreateApplication, TServiceParams } from '@digital-alchemy/core'
 import { LIB_HASS } from '@digital-alchemy/hass'
-import { functionStateServerCallFunctionRequest } from '@v3rt3p/types/function-state-server'
+import {
+  Functions,
+  FunctionStateServerCallFunctionResponse,
+  FunctionStateServerStateResponse
+} from '@v3rt3p/types/function-state-server'
 import dotenv from 'dotenv'
 import express from 'express'
+import z from 'zod'
 
 import { loadConfig } from './config'
 import { buildDevices, DeviceEntry, snapshotEntity } from './devices'
@@ -25,14 +30,14 @@ const PORT = Number.parseInt(process.env.PORT || '8080')
  */
 const DEVICE_CACHE_MS = 1000
 
-function collectFunctions (devices: Map<string, DeviceEntry>): Record<string, unknown> {
-  const result: Record<string, unknown> = {}
+function collectFunctions (devices: Map<string, DeviceEntry>): Functions {
+  const result: Functions = {}
   for (const device of devices.values()) {
     for (const function_ of device.functions) {
       result[function_.name] = {
-        ...((function_.hasResponse === true) && { hasResponse: true }),
         arguments: function_.arguments,
-        description: function_.description
+        description: function_.description,
+        hasResponse: function_.hasResponse === true
       }
     }
   }
@@ -40,8 +45,8 @@ function collectFunctions (devices: Map<string, DeviceEntry>): Record<string, un
 }
 
 function collectState (homeAssistant: HomeAssistantApi,
-  devices: Map<string, DeviceEntry>): Record<string, { description: string, value: string }> {
-  const result: Record<string, { description: string, value: string }> = {}
+  devices: Map<string, DeviceEntry>): FunctionStateServerStateResponse {
+  const result: FunctionStateServerStateResponse = {}
   for (const device of devices.values()) {
     result[device.stateProvider.name] = {
       description: device.stateProvider.description,
@@ -119,25 +124,50 @@ function startHttpServer (homeAssistant: HomeAssistantApi,
   const app = express()
   app.use(express.json())
 
-  app.put('/state', async (_, response) => {
+  /**
+   * Metadata-dependent request bodies. Metadata is accepted (and validated) but
+   * ignored: the exposed Home Assistant devices do not depend on processor
+   * session metadata, so PUT returns the same data as GET.
+   */
+  const metadataRequest = z.object({
+    metadata: z.record(z.string(), z.any()).default({}),
+    sessionId: z.string().optional()
+  })
+
+  const argumentValues = z.record(z.string(), z.union([z.string(), z.number()]))
+
+  const callFunctionRequest = z.object({
+    arguments: argumentValues.nullish().transform(value => value ?? {}),
+    metadata: z.record(z.string(), z.any()).default({}),
+    name: z.string(),
+    sessionId: z.string().optional()
+  })
+
+  // metadata-independent state
+  app.get('/state', async (_, response) => {
     response.status(200).json(collectState(homeAssistant, await getDevices()))
   })
 
-  app.post('/state', async (_, response) => {
+  // metadata-dependent state
+  app.put('/state', async (request, response) => {
+    metadataRequest.parse(request.body ?? {})
     response.status(200).json(collectState(homeAssistant, await getDevices()))
   })
 
+  // metadata-independent functions
   app.get('/functions', async (_, response) => {
     response.status(200).json(collectFunctions(await getDevices()))
   })
 
-  app.post('/functions', async (_, response) => {
-    // same contract as GET: lets clients force a device list refresh via POST
+  // metadata-dependent functions
+  app.put('/functions', async (request, response) => {
+    metadataRequest.parse(request.body ?? {})
     response.status(200).json(collectFunctions(await getDevices()))
   })
 
-  app.patch('/functions', (request, response) => {
-    const body = functionStateServerCallFunctionRequest.parse(request.body)
+  // invoke function
+  app.post('/functions', (request, response) => {
+    const body = callFunctionRequest.parse(request.body ?? {})
     logger.info(`Called function '${body.name}' with ${JSON.stringify(body)}`)
     void (async () => {
       const function_ = findFunction(await getDevices(), body.name)
@@ -147,7 +177,9 @@ function startHttpServer (homeAssistant: HomeAssistantApi,
       }
       try {
         const result = await function_.invoke(body.arguments)
-        response.status(200).json(result === undefined ? {} : { response: result })
+        const callResponse: FunctionStateServerCallFunctionResponse =
+          result === undefined ? {} : { response: result }
+        response.status(200).json(callResponse)
       } catch (error: unknown) {
         logger.warn(`Failed to call '${body.name}': ${String(error)}`)
         response.status(500).json({ error: String(error) })

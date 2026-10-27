@@ -1,11 +1,4 @@
-import { FunctionArgument } from '@v3rt3p/types/function-state-server'
-
-import {
-  numberMinMax,
-  onOffVariants,
-  renamedVariants,
-  stringVariants
-} from '../arguments'
+import { argumentsSchema, JsonSchema, numberMinMax, onOffVariants, renamedVariants, stringVariants } from '../arguments'
 import { hasFeature } from './features'
 import { DeviceContext, DeviceFunction } from './types'
 
@@ -33,10 +26,10 @@ function featuresOf (context: DeviceContext): number {
   return context.entity.features
 }
 
-function function_ (name: string, description: string, arguments_: Record<string, FunctionArgument>,
+function function_ (name: string, description: string, arguments_: Record<string, JsonSchema>,
   invoke: (values: Record<string, number | string>) => Promise<string | undefined> | Promise<void>): DeviceFunction {
   return {
-    arguments: arguments_,
+    arguments: argumentsSchema(arguments_),
     description,
     invoke: invoke as (values: Record<string, number | string>) => Promise<string | undefined>,
     name
@@ -47,7 +40,7 @@ function function_ (name: string, description: string, arguments_: Record<string
 single-argument service call, e.g. select_source { source: ... }
 */
 function optionFunction (context: DeviceContext, action: string, service: string,
-  argumentName: string, argument: FunctionArgument, description: string): DeviceFunction {
+  argumentName: string, argument: JsonSchema, description: string): DeviceFunction {
   const { callService, domain, entity, slug } = context
   return function_(`${slug}_${action}`, description, { [argumentName]: argument }, async values => {
     await callService(domain, service, {
@@ -637,9 +630,9 @@ export function buildDeviceFunctions (context: DeviceContext): DeviceFunction[] 
 function buildHistoryFunction (context: DeviceContext): DeviceFunction {
   const { entity, name, slug } = context
   return {
-    arguments: {
+    arguments: argumentsSchema({
       days: numberMinMax('period in days, e.g. 7 for the last week', 1, 31)
-    },
+    }),
     description: `how often ${name} was used: returns number of activations and ` +
       'total active time for the requested period',
     hasResponse: true,

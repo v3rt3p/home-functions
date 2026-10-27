@@ -1,6 +1,10 @@
-import { FunctionArgument } from '@v3rt3p/types/function-state-server'
-
 import { EntityConfig } from './config'
+
+/**
+ * JSON Schema describing a function's whole arguments object
+ * (the `arguments` field of the function-state-server contract).
+ */
+export type JsonSchema = Record<string, unknown>
 
 export interface RenamedVariant {
   aliases: string[];
@@ -8,31 +12,40 @@ export interface RenamedVariant {
   value: string;
 }
 
-export function numberMinMax (description: string, min: number, max: number): FunctionArgument {
+/**
+ * Wrap per-argument schemas into the arguments JSON Schema.
+ * Zero-argument functions get an empty (permissive) schema.
+ */
+export function argumentsSchema (properties: Record<string, JsonSchema>): JsonSchema {
+  const keys = Object.keys(properties)
+  if (keys.length === 0) {
+    return {}
+  }
   return {
-    constraints: {
-      argumentType: 'number',
-      max,
-      min,
-      type: 'number-min-max'
-    },
-    description
+    properties,
+    required: keys,
+    type: 'object'
+  }
+}
+
+export function numberMinMax (description: string, min: number, max: number): JsonSchema {
+  return {
+    description,
+    maximum: max,
+    minimum: min,
+    type: 'number'
   }
 }
 
 export function numberVariants (description: string,
-  variants: { description: string, value: number }[]): FunctionArgument {
+  variants: { description: string, value: number }[]): JsonSchema {
   return {
-    constraints: {
-      argumentType: 'number',
-      type: 'number-variants',
-      variants
-    },
+    anyOf: variants.map(variant => ({ const: variant.value, description: variant.description })),
     description
   }
 }
 
-export function onOffVariants (onDescription = 'on', offDescription = 'off'): FunctionArgument {
+export function onOffVariants (onDescription = 'on', offDescription = 'off'): JsonSchema {
   return numberVariants('device state', [
     { description: offDescription, value: 0 },
     { description: onDescription, value: 1 }
@@ -77,16 +90,12 @@ export function renamedVariants (config: EntityConfig, listName: string,
   return variants.length === 0 ? undefined : variants
 }
 
-export function stringVariants (description: string, variants: RenamedVariant[]): FunctionArgument {
+export function stringVariants (description: string, variants: RenamedVariant[]): JsonSchema {
   return {
-    constraints: {
-      argumentType: 'string',
-      type: 'string-variants',
-      variants: variants.map(variant => ({
-        description: [variant.description, ...variant.aliases].join(', '),
-        value: variant.value
-      }))
-    },
+    anyOf: variants.map(variant => ({
+      const: variant.value,
+      description: [variant.description, ...variant.aliases].join(', ')
+    })),
     description
   }
 }
