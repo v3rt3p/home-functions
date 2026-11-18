@@ -122,7 +122,7 @@ function MainService ({ hass, lifecycle }: TServiceParams) {
 function startHttpServer (homeAssistant: HomeAssistantApi,
   getDevices: () => Promise<Map<string, DeviceEntry>>): void {
   const app = express()
-  app.use(express.json())
+  app.use(express.json({ limit: '10mb' }))
 
   /**
    * Metadata-dependent request bodies. Metadata is accepted (and validated) but
